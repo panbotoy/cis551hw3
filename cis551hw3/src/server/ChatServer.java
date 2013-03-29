@@ -13,6 +13,7 @@ public class ChatServer {
 		System.out.println("git hub sb2");
 		System.out.print("is there conflict?");
 		System.out.println("We can start working");
+		System.out.println("to create conflict");
 	}
 
 }
