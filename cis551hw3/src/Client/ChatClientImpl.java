@@ -1,6 +1,7 @@
 package Client;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -39,22 +40,36 @@ public class ChatClientImpl {
 			 * 
 			 * *********/
 			PrintWriter pw = new PrintWriter(this.connection.getOutputStream(), true);
-			BufferedReader br = new BufferedReader(new InputStreamReader(this.connection.getInputStream()));
+			DataInputStream socketInput = new DataInputStream(this.connection.getInputStream());
+			BufferedReader br = new BufferedReader(new InputStreamReader(socketInput));
 			BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+			
+			String currentLine = br.readLine();
+			String responseLine = new String();
 			while(true)
 			{
-				String currentLine = br.readLine();
-				String responseLine = new String();
 				if(currentLine.equals(this.authenticationReq))
 				{
 					System.out.println("Please input your username and password:");
+					currentLine = new String();
 					responseLine = userInput.readLine();
 					pw.println(responseLine);
 				}
 				else{
-					System.out.println("Server said: " + currentLine);
-					responseLine = userInput.readLine();
-					pw.println(responseLine);
+					if(socketInput.available()>0)
+					{
+						currentLine = br.readLine();
+						System.out.println("Server said: " + currentLine);
+					}
+					if(System.in.available()>0)
+					{
+						responseLine = userInput.readLine();
+						pw.println(responseLine);
+						if(responseLine.equals("exit"))
+						{
+							return;
+						}		
+					}
 				}
 			}
 			

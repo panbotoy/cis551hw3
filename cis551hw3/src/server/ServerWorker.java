@@ -1,6 +1,7 @@
 package server;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -27,31 +28,43 @@ public class ServerWorker {
 	 * once successful, client can start chat, and can close connection by typing "EXIT"
 	 * ***/
 	
-	public void Work(Socket connection) throws IOException
+	public boolean Work(Socket connection) throws IOException
 	{
 		this.connection = connection;
 		PrintWriter pw = new PrintWriter(this.connection.getOutputStream(), true); //write to socket
-		BufferedReader br = new BufferedReader(new InputStreamReader(this.connection.getInputStream())); // read from socket
+		DataInputStream socketInput = new DataInputStream(this.connection.getInputStream());
+		BufferedReader br = new BufferedReader(new InputStreamReader(socketInput));		 // read from socket
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 		this.authenticated = AuthenticationReq(pw, br); // authenticates user
 		if(this.authenticated)
 		{
 			pw.println("Successfully logged in! You can start to chat!");
 			String currentLine = br.readLine();
-			System.out.println("Server received : " + currentLine);
+			String responseLine = new String();
+			System.out.println("Client Said : " + currentLine);
 			while(!currentLine.equals(this.exitMsg))
 			{
-				currentLine = br.readLine();
-				System.out.println("Server received : " + currentLine);
+				if(socketInput.available()>0)
+				{
+					currentLine = br.readLine();
+					System.out.println("Client Said : " + currentLine);
+				}
+				if(System.in.available()>0)
+				{
+					responseLine = userInput.readLine();
+					pw.println(responseLine);
+				}
 			}
 			System.out.println("Server Received exit command, closing connection!");
 			this.connection.close();
+			return true;
 		}
 		else
 		{
 			System.out.println("Authentication Failed");
 			pw.println("Authentication failed! Close Connection!");
 			this.connection.close();
+			return true;
 		}
 
 	}

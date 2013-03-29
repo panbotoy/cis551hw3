@@ -30,12 +30,12 @@ public class ServerImpl {
 				Socket connection = this.serverSocket.accept();
 				System.out.println("Accepted Client Connection!");
 				ServerWorker worker = new ServerWorker();
-				worker.Work(connection);
+				this.isInterrupted = worker.Work(connection);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				System.out.println("Cannot Accept Client Socket! Or Server IO problem");
 				e.printStackTrace();
-			}
+			} 
 		}
 	}
 	
