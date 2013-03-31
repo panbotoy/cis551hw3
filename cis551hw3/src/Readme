@@ -1,0 +1,30 @@
+CIS551 HW1 MS1
+Group 13
+Member: Bo Pan, Hang Lu, Yuting Shi
+
+Files:
+src folder: not needed for compilation with makefile
+ServerJar.jar
+makefile
+Proposal: describes the structure of our chatting system and the security concepts that we cover with our system.
+
+Compiling and running our code:
+1. We have a make file. Please make sure makefile, ServerJar.jar, ChatServer.java, ChatClient.java are in the same directory.
+2. Run the make file. ChatServer.class, ChatClient.class should be compiled respectively.
+
+3. Running the server side code, please use the following command:
+    java -cp .:ServerJar.jar ChatServer
+
+4. Running the client side code, please use the following command:
+    java -cp .:ServerJar.jar ChatClient <Server Host Name>
+If you are running on the same machine for server and client, <Server Host Name > should be localhost. Or it can be specXX which the server runs on.
+
+5. When the client connects to server, server should prompt to ask the client to login, the only user name we stored on the server side is: 
+                    user 123
+Please input this string (separated by a space) to log in.
+
+6. The client can start to chat. Server side user can also send information.
+
+7. The client can type ¡°exit¡± as an exit message to terminate the connection.
+
+
