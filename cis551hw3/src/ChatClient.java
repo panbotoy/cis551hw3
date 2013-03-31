@@ -1,4 +1,6 @@
-package Client;
+
+
+import Client.ChatClientImpl;
 
 public class ChatClient {
 
