@@ -20,8 +20,11 @@ public class ChatClientImpl {
 	private int portNumber;
 	private Socket connection;
 	private String authenticationReq = new String("please input username and password");
+	private ClientMessageHandler clientmessagehandler;
 	
-	public ChatClientImpl(){}
+	public ChatClientImpl(){
+		clientmessagehandler = new ClientMessageHandler();
+	}
 	
 	public void Start(String hostName, int portNumber)
 	{
@@ -53,34 +56,36 @@ public class ChatClientImpl {
 			ObjectInputStream ois = new ObjectInputStream(socketInput);                            // Read Object(message) from socket
 			ObjectOutputStream oos = new ObjectOutputStream(this.connection.getOutputStream());    // write to socket
 
-			BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));       //Read user input
+			BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));   //Read user input
 			boolean clientWorking = true;
 			while(clientWorking)
 			{
-				if(socketInput.available()>0)                                  // if client receives any message from server
+				if(socketInput.available()>0)     // if client receives any message from server
 				{
 					try {
 						Message msg = (Message)ois.readObject();
-						clientWorking = ClientMessageHandler.handleMsg(msg, oos, ois, userInput);  //handle the message
+						clientWorking = clientmessagehandler.handleMsg(msg, oos, ois, userInput);  //handle the message
 					} catch (ClassNotFoundException e) {
 						// TODO Auto-generated catch block
 						System.out.println("Cannot cast to any message types when received from server");
 						e.printStackTrace();
 					}
 				}
-				if(System.in.available()>0)                                      //if client user sends anything
+				if(System.in.available()>0)   //if client user sends anything
 				{
 					String responseLine = userInput.readLine();
 					if(responseLine.equals("exit"))   //Client Sends exit
 					{
-						ExitMessage exit = new ExitMessage();
+						ExitMessage exit = new ExitMessage(clientmessagehandler.getClientDesKey(),clientmessagehandler.getClientsequencenumber()+1);
+						clientmessagehandler.setClientsequencenumber(clientmessagehandler.getClientsequencenumber()+1);
 						oos.writeObject(exit);
 						oos.flush();
 						return;
 					}
-					else                             // Client sends normal data message
+					else    // Client sends normal data message
 					{
-						DataMessage data = new DataMessage(responseLine);
+						DataMessage data = new DataMessage(clientmessagehandler.getClientDesKey(),responseLine,clientmessagehandler.getClientsequencenumber()+1);
+						clientmessagehandler.setClientsequencenumber(clientmessagehandler.getClientsequencenumber()+1);
 						oos.writeObject(data);
 						oos.flush();
 					}

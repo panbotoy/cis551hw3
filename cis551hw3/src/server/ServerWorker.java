@@ -14,12 +14,59 @@ import Message.AuthenticationRequest;
 import Message.DataMessage;
 import Message.ExitMessage;
 import Message.Message;
+import Message.ServerPublicKeyMessage;
+
+import java.security.*;
+import java.security.spec.*;
+import java.security.interfaces.*;
+import javax.crypto.*;
+import javax.crypto.spec.*;
+import javax.crypto.interfaces.*;
 
 public class ServerWorker {
+	
 	private Socket connection;
+	private DHParameterSpec dhSkipParamSpec;
+	private KeyAgreement serverKeyAgree;
+	private byte[] serverPubKeyEnc;
+	private ServerMessageHandler servermessagehandler;
 	
 	public ServerWorker(){
 		
+		servermessagehandler = new ServerMessageHandler();
+		
+		//System.out.println("Creating Diffie-Hellman parameters...");
+		AlgorithmParameterGenerator paramGen;
+		try {
+			
+			paramGen = AlgorithmParameterGenerator.getInstance("DH");
+			paramGen.init(512);
+			AlgorithmParameters params = paramGen.generateParameters();
+			dhSkipParamSpec = (DHParameterSpec)params.getParameterSpec(DHParameterSpec.class);	
+			
+			
+	        KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("DH");
+	        serverKpairGen.initialize(dhSkipParamSpec);
+	        KeyPair serverKpair = serverKpairGen.generateKeyPair();
+	        
+	        //Server creates and initializes her DH KeyAgreement object
+	        serverKeyAgree = KeyAgreement.getInstance("DH");
+	        serverKeyAgree.init(serverKpair.getPrivate());
+	        
+	        //get the public key and send it to the client
+	        serverPubKeyEnc = serverKpair.getPublic().getEncoded();
+	       
+
+		} catch (NoSuchAlgorithmException e){
+			e.printStackTrace();
+		} catch (InvalidParameterSpecException e){
+			e.printStackTrace();
+		} catch (InvalidAlgorithmParameterException e) {
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		}
+	
 	}
 	
 	/****
@@ -50,24 +97,24 @@ public class ServerWorker {
 		ObjectInputStream ois = new ObjectInputStream(socketInput);							  // Read from socket
 		
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));      // Read user input
-		boolean serverWorking =  AuthenticationReq(oos);                                      //Send authentication request to client
+		boolean serverWorking = sendServerPubKey(oos, serverPubKeyEnc);                      //Send public key encrypt to client
 		while(serverWorking)
 		{
 			if(socketInput.available()>0)   //If receives anything from socket
 			{
 				try {
 					Message msg = (Message)ois.readObject();  //Get message from socket
-					serverWorking = ServerMessageHandler.handleMsg(msg, oos, ois, userInput);   //Handles the msg
+					serverWorking = servermessagehandler.handleMsg(msg, oos, ois, userInput, serverKeyAgree);   //Handles the msg
 				} catch (ClassNotFoundException e) {
-					// TODO Auto-generated catch block
 					System.out.println("Cannot cast to any message types when received from client");
 					e.printStackTrace();
 				}
 			}
-			if(System.in.available()>0)    // If user output anything, send a DataMessage
+			if(System.in.available()>0)// If user output anything, send a DataMessage
 			{
 				String responseLine = userInput.readLine();
-				DataMessage data = new DataMessage(responseLine);
+				DataMessage data = new DataMessage(servermessagehandler.getServerDesKey(),responseLine, servermessagehandler.getServersequencenumber()+1);
+				servermessagehandler.setServersequencenumber(servermessagehandler.getServersequencenumber()+1);
 				oos.writeObject(data);
 				oos.flush();
 			}
@@ -75,17 +122,18 @@ public class ServerWorker {
 		return true;
 	}
 	
-	private boolean AuthenticationReq(ObjectOutputStream oos){
-		// TODO Auto-generated method stub
-		AuthenticationRequest authReq=  new AuthenticationRequest();
+	private boolean sendServerPubKey(ObjectOutputStream oos, byte[] serverPubKeyEnc){
+		ServerPublicKeyMessage serverpubkeymsg=  new ServerPublicKeyMessage(serverPubKeyEnc,servermessagehandler.getServersequencenumber()+1);
+		servermessagehandler.setServersequencenumber(servermessagehandler.getServersequencenumber()+1);
 		try {
-			oos.writeObject(authReq);
+			oos.writeObject(serverpubkeymsg);
 			oos.flush();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			System.out.println("Error in sending authentication request--server authenticationReq");
+
+			System.out.println("Error in sending server public key encrypt request--server serverPubKeyMessage");
 			e.printStackTrace();
 		}
 		return true;
 	}
+	
 }

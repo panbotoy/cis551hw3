@@ -1,5 +1,15 @@
 package Message;
 import java.io.*;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 
 /************
@@ -28,17 +38,41 @@ public class Message implements Serializable{
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	MessageType messageType;
-	int encodingType;
-	int encryptionMethod;
+	protected int sequencenumber;
+	protected MessageType messageType;
+	protected long timestamp;
+	protected byte[] data = null;
+	protected byte[] hashedresult;
+	//int encodingType;
+	//int encryptionMethod;
+	//private int dataLength;
 
+	public Message(int seq){
+		timestamp = System.currentTimeMillis();
+		sequencenumber = seq;
+	}
+	
+	/************** Getters and Setters  ****************/
 	public MessageType getMessageType() {
 		return messageType;
 	}
-	public void setMessageType(MessageType messageType) {
-		this.messageType = messageType;
+	public long getTimestamp() {
+		return timestamp;
 	}
-	public int getEncodingType() {
+	
+	public int getSequencenumber() {
+		return sequencenumber;
+	}
+
+	public byte[] getData() {
+		return data;
+	}
+
+	public byte[] getHashedresult() {
+		return hashedresult;
+	}
+	
+	/*public int getEncodingType() {
 		return encodingType;
 	}
 	public void setEncodingType(int encodingType) {
@@ -49,10 +83,93 @@ public class Message implements Serializable{
 	}
 	public void setEncriptionMethod(int encriptionMethod) {
 		this.encryptionMethod = encriptionMethod;
+	}*/
+
+	/********************** local methods **********************/
+	//public void MessageEncode(){}
+	//public void MessageDecode(){}
+	public void MessageEncrypt(SecretKey key){}
+	public void MessageEncrypt(SecretKey key, String data){
+		try {
+			Cipher cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+			cipher.init(Cipher.ENCRYPT_MODE, key);
+			this.data = cipher.doFinal(data.getBytes());
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+	public byte[] MessageDecrypt(SecretKey key){
+
+		try {
+			Cipher cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+			cipher.init(Cipher.DECRYPT_MODE, key);
+			return cipher.doFinal(data);
+			
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
-	public void MessageEncode(){}
-	public void MessageDecode(){}
-	public void MessageEncrypt(String key){}
-	public void MessageDecrypt(String key){}
+	public byte[] hashAllInfo(SecretKey key){
+		byte[] result;
+		byte[] seq = new Integer(sequencenumber).toString().getBytes();
+		int len = 0;
+		len += seq.length;
+		int messagetypelen = this.messageType.toString().length();
+		len = messagetypelen;
+		len += data==null?0:data.length;
+		result = new byte[len+14];
+		
+		//This part is the sequence number
+		System.arraycopy(seq, 0, result, 0, seq.length);
+		
+		//this part is the message type
+		byte[] msgtype = messageType.toString().getBytes();
+		System.arraycopy(msgtype, 0, result, seq.length, messagetypelen);
+		
+		//this part is time stamp
+		byte[] timestamparr = new Long(timestamp).toString().getBytes();
+		System.arraycopy(timestamparr, 0, result, seq.length+messagetypelen, 13);
+		
+		//this part is the data encrypted
+		if (data!=null)
+		System.arraycopy(data, 0, result, seq.length+messagetypelen+13, data.length);
+		
+		Mac mac = null;
+        try {
+        	mac = Mac.getInstance("HmacMD5");
+			mac.init(key);
+			return mac.doFinal(result);
+			
+		} catch (InvalidKeyException e) {
+			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+        return null;
+	}
+	
+	public boolean checkIntegrity(SecretKey key){
+		if (key==null) return true;
+		return Arrays.equals(hashAllInfo(key), hashedresult);
+	}
 }

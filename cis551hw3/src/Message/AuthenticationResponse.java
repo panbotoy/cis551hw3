@@ -1,59 +1,33 @@
 package Message;
 
+import java.io.IOException;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+
 public class AuthenticationResponse extends Message{
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 1L;
-	private String data;
-	private int dataLength;
-	
-	public AuthenticationResponse (String data)
-	{
-		this.setData(data);
-		this.setDataLength(data.length());
+		
+	public AuthenticationResponse(SecretKey key,String data, int seq)
+	{	
+		super(seq);
 		this.messageType = MessageType.Auth_Rsp;
+		MessageEncrypt(key, data);
+		hashedresult = hashAllInfo(key);
 	}
 
-	@Override
-	public void MessageEncode() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void MessageDecode() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void MessageEncrypt(String key) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void MessageDecrypt(String key) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	public String getData() {
-		return data;
-	}
-
-	public void setData(String data) {
-		this.data = data;
-	}
-
-	public int getDataLength() {
+	/*public int getDataLength() {
 		return dataLength;
-	}
+	}*/
 
-	public void setDataLength(int dataLength) {
-		this.dataLength = dataLength;
-	}
-	
-	
 }
