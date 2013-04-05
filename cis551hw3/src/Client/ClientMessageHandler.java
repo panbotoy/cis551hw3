@@ -12,6 +12,7 @@ import java.util.HashSet;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import javax.crypto.interfaces.*;
+import com.sun.crypto.provider.SunJCE;
 
 import Message.AuthenticationConfirmation;
 import Message.AuthenticationRequest;
