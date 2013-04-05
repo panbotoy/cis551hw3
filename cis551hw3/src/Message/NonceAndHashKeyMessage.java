@@ -7,7 +7,7 @@ public class NonceAndHashKeyMessage extends Message{
 
 	/**
 	 * 
-	 */
+	 */ 
 	private static final long serialVersionUID = 1L;
 	
 	protected SecretKey hashKey;

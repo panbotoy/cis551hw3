@@ -6,7 +6,7 @@ public class Nonce {
 		this.value = (int) (Math.random() * Math.pow(10, 10));
 	}
 	
-	/***A static nonce generator**********/
+	/***A static nonce generator**********/ 
 	static public Nonce getNonce()
 	{
 		Nonce nonce = new Nonce();
