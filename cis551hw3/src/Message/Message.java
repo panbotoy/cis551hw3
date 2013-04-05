@@ -39,7 +39,7 @@ public class Message implements Serializable{
 	 */
 	private static final long serialVersionUID = 1L;
 	protected int sequencenumber;
-	protected int nonce=-1;
+	protected int nonce;
 	protected MessageType messageType;
 	protected long timestamp;
 	protected byte[] data = null;
@@ -51,6 +51,7 @@ public class Message implements Serializable{
 	public Message(int seq){
 		timestamp = System.currentTimeMillis();
 		sequencenumber = seq;
+		nonce = -1;
 	}
 	
 	/************** Getters and Setters  ****************/
@@ -138,23 +139,28 @@ public class Message implements Serializable{
 		len += seq.length;
 		len += noncevalue.length;
 		int messagetypelen = this.messageType.toString().length();
-		len = messagetypelen;
+		len += messagetypelen;
 		len += data==null?0:data.length;
 		result = new byte[len+14];
+		//System.out.println("total:"+(len+14));
 		
 		//This part is the sequence number
 		System.arraycopy(seq, 0, result, 0, seq.length);
+		//System.out.println("seq: "+seq.length);
 		
 		//this part is the message type
 		byte[] msgtype = messageType.toString().getBytes();
 		System.arraycopy(msgtype, 0, result, seq.length, messagetypelen);
+		//System.out.println("msg type: "+messagetypelen);
 		
 		//this part is time stamp
 		byte[] timestamparr = new Long(timestamp).toString().getBytes();
 		System.arraycopy(timestamparr, 0, result, seq.length+messagetypelen, 13);
+		//System.out.println("time: "+timestamparr.length);
 		
 		//this part is the nonce encrypted
 		System.arraycopy(noncevalue, 0, result, seq.length+messagetypelen+13, noncevalue.length);
+		//System.out.println("nonce: "+noncevalue.length);
 		
 		//this part is the data encrypted
 		if (data!=null)

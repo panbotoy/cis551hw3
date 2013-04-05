@@ -12,10 +12,8 @@ public class NonceAndHashKeyMessageRsp extends Message{
 	public NonceAndHashKeyMessageRsp(int seq, int nonce, SecretKey hashkey) {
 		super(seq);
 		this.messageType = MessageType.Nonce_Hash_rsp;
-		sessionNonce = nonce;
-		this.hashAllInfo(hashkey);
+		this.nonce = nonce;
+		this.hashedresult = this.hashAllInfo(hashkey);
 	}
-	
-	int sessionNonce;
 	
 }

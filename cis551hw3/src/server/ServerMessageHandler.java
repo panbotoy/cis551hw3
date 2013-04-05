@@ -165,7 +165,7 @@ public class ServerMessageHandler {
 				if(clientrspauthrandom == serverauthrandom){
 					//send answer to client
 					sendServerResponseAuthenticationMessage(oos);
-					this.generateHashKeyAndNonce();
+					generateHashKeyAndNonce();
 					NonceAndHashKeyMessage nonceandhashkeymsg = new NonceAndHashKeyMessage(++serversequencenumber, MessageType.Nonce_Hash, this.hashKey, this.sessionNonce);
 					this.sendMessage(oos, nonceandhashkeymsg);
 					System.out.println("send Nonce Hash");
@@ -175,7 +175,10 @@ public class ServerMessageHandler {
 				return true;
 			case Nonce_Hash_rsp:
 				System.out.println("received Nonce Hash rsp");
-				if(!msg.checkIntegrity(hashKey)) return false;
+				if(!msg.checkIntegrity(hashKey)) {
+					System.out.println("hash check failure");
+					return false;
+				}
 				AuthenticationReq(oos, hashKey);
 				return true;
 			default:

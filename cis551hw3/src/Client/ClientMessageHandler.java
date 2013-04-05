@@ -47,7 +47,7 @@ public class ClientMessageHandler {
 		timestamp = 0;
 		serverauthrandom = -1;
 		clientauthrandom = (int)(Math.random()*Math.pow(10, 10));
-		sessionNonce = (int)(Math.random()*Math.pow(10, 10));
+		sessionNonce = 0;
 	}
 	
 	/**********4/5 Bo	 * 
