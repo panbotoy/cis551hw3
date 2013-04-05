@@ -7,6 +7,8 @@ import java.io.ObjectOutputStream;
 import java.security.*;
 import java.security.spec.*;
 import java.security.interfaces.*;
+import java.util.HashSet;
+
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import javax.crypto.interfaces.*;
@@ -15,21 +17,98 @@ import com.sun.crypto.provider.SunJCE;
 import Message.AuthenticationConfirmation;
 import Message.AuthenticationRequest;
 import Message.AuthenticationResponse;
+import Message.ClientAuthenticationMessage;
 import Message.ClientPublicKeyMessage;
+import Message.ClientResponseAuthenticationMessage;
 import Message.DataMessage;
 import Message.Message;
+import Message.MessageType;
+import Message.Nonce;
+import Message.NonceAndHashKeyMessage;
+import Message.ServerAuthenticationMessage;
+import Message.ServerResponseAuthenticationMessage;
 
 public class ServerMessageHandler {
 	private String username = "user";
 	private String password = "123";
 	private SecretKey serverDesKey;
-	private int clientsequencenumber = 0; //always keep last client's sequence number
-	private int serversequencenumber = 0; //always keep current server's sequence number
-	private long timestamp = 0;
+	private int clientsequencenumber; //always keep last client's sequence number
+	private int serversequencenumber; //always keep current server's sequence number
+	private long timestamp;
+	private int serverauthrandom, clientrspauthrandom, clientauthrandom;
+	private HashSet<MessageType> expectingMessageType;
+	private int sessionNonce = 0;
+	private SecretKey hashKey = null;
+	
+	
+	public ServerMessageHandler(){
+		clientsequencenumber = 0;
+		serversequencenumber = 0;
+		timestamp = 0;
+		serverauthrandom = (int)(Math.random()*Math.pow(10, 10));
+		clientauthrandom = -1;
+		clientrspauthrandom = -1;
+	}
+	
+	/*****************
+	 * Bo: 4/5
+	 * Add HashKey, add nonce
+	 * ****************/
+	
+	public void generateHashKeyAndNonce()
+	{
+		this.sessionNonce = Nonce.getNonce().getValue();
+        KeyGenerator kg = null;
+		try {
+			kg = KeyGenerator.getInstance("HmacMD5");
+			this.hashKey = kg.generateKey();
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			System.out.println("Generate shared hashKey failed in Server!");
+			e.printStackTrace();
+		}
+	}
+	
+	public void sendMessage(ObjectOutputStream oos, Message msg)
+	{
+		if(msg == null)
+		{
+			return;
+		}
+		try {
+			oos.writeObject(msg);
+			oos.flush();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			System.out.println("");
+			e.printStackTrace();
+		}
+	}
+	
+	public boolean isExpectingMessageType(MessageType messageType)
+	{
+		return this.expectingMessageType.contains(messageType);
+	}
+	
+	public void clearExpectingMessageTypes()
+	{
+		this.expectingMessageType.clear();
+	}
+	
+	public void setExpectingMessageType(MessageType messageType)
+	{
+		this.expectingMessageType.add(messageType);
+	}
+	
+	
+	/**********
+	 * Bo: 4/5 End
+	 * *************/
+
 	
 	public boolean handleMsg(Message msg, ObjectOutputStream oos, ObjectInputStream ois, BufferedReader userInput, KeyAgreement serverKeyAgree) throws IOException
 	{
-		if(!msg.checkIntegrity(serverDesKey)) return false;
+		//if(!msg.checkIntegrity(serverDesKey)) return false;
 		
 		if(msg.getSequencenumber()==(clientsequencenumber+1)){
 			clientsequencenumber = msg.getSequencenumber();
@@ -73,7 +152,32 @@ public class ServerMessageHandler {
 			case Client_pub:
 				ClientPublicKeyMessage clientpubkeymsg = (ClientPublicKeyMessage)msg;
 				generateServerDesKey(clientpubkeymsg, serverKeyAgree);
-				AuthenticationReq(oos, serverDesKey);
+				sendServerAuthenticationMessage(oos);
+				System.out.println("server auth sent");
+				return true;
+			case Client_rspauth:
+				ClientResponseAuthenticationMessage clientrspauthmsg = (ClientResponseAuthenticationMessage)msg;
+				clientrspauthrandom = clientrspauthmsg.getAnswer();
+				return clientrspauthrandom == serverauthrandom;
+			
+			case Client_auth:
+				ClientAuthenticationMessage clientauthmsg = (ClientAuthenticationMessage)msg;
+				clientauthrandom = Integer.parseInt(printData(clientauthmsg.MessageDecrypt(serverDesKey)));
+				if(clientrspauthrandom == serverauthrandom){
+					//send answer to client
+					sendServerResponseAuthenticationMessage(oos);
+					this.generateHashKeyAndNonce();
+					NonceAndHashKeyMessage nonceandhashkeymsg = new NonceAndHashKeyMessage(++serversequencenumber, MessageType.Nonce_Hash, this.hashKey, this.sessionNonce);
+					this.sendMessage(oos, nonceandhashkeymsg);
+					System.out.println("send Nonce Hash");
+				}else{
+					return false; 
+				}
+				return true;
+			case Nonce_Hash_rsp:
+				System.out.println("received Nonce Hash rsp");
+				if(!msg.checkIntegrity(hashKey)) return false;
+				AuthenticationReq(oos, hashKey);
 				return true;
 			default:
 				System.out.println("Received unknown message type");
@@ -105,7 +209,7 @@ public class ServerMessageHandler {
 		}
 	}
 	
-	private boolean AuthenticationReq(ObjectOutputStream oos, SecretKey serverDesKey){
+	private void AuthenticationReq(ObjectOutputStream oos, SecretKey serverDesKey){
 
 		AuthenticationRequest authReq=  new AuthenticationRequest(++serversequencenumber, serverDesKey);
 		try {
@@ -115,7 +219,28 @@ public class ServerMessageHandler {
 			System.out.println("Error in sending authentication request--server authenticationReq");
 			e.printStackTrace();
 		}
-		return true;
+	}
+	
+	private void sendServerAuthenticationMessage(ObjectOutputStream oos){
+		ServerAuthenticationMessage serverauthmsg=  new ServerAuthenticationMessage(++serversequencenumber, serverDesKey, serverauthrandom);
+		try {
+			oos.writeObject(serverauthmsg);
+			oos.flush();
+		} catch (IOException e) {
+			System.out.println("Error in sending authentication request--server authenticationReq");
+			e.printStackTrace();
+		}
+	}
+	
+	private void sendServerResponseAuthenticationMessage(ObjectOutputStream oos){
+		ServerResponseAuthenticationMessage serverauthmsg=  new ServerResponseAuthenticationMessage(++serversequencenumber, clientauthrandom);
+		try {
+			oos.writeObject(serverauthmsg);
+			oos.flush();
+		} catch (IOException e) {
+			System.out.println("Error in sending authentication request--server authenticationReq");
+			e.printStackTrace();
+		}
 	}
 	
 	private String printData(byte[] data){

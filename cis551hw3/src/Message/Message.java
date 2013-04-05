@@ -39,6 +39,7 @@ public class Message implements Serializable{
 	 */
 	private static final long serialVersionUID = 1L;
 	protected int sequencenumber;
+	protected int nonce=-1;
 	protected MessageType messageType;
 	protected long timestamp;
 	protected byte[] data = null;
@@ -132,8 +133,10 @@ public class Message implements Serializable{
 	public byte[] hashAllInfo(SecretKey key){
 		byte[] result;
 		byte[] seq = new Integer(sequencenumber).toString().getBytes();
+		byte[] noncevalue = new Integer(nonce).toString().getBytes();
 		int len = 0;
 		len += seq.length;
+		len += noncevalue.length;
 		int messagetypelen = this.messageType.toString().length();
 		len = messagetypelen;
 		len += data==null?0:data.length;
@@ -150,9 +153,12 @@ public class Message implements Serializable{
 		byte[] timestamparr = new Long(timestamp).toString().getBytes();
 		System.arraycopy(timestamparr, 0, result, seq.length+messagetypelen, 13);
 		
+		//this part is the nonce encrypted
+		System.arraycopy(noncevalue, 0, result, seq.length+messagetypelen+13, noncevalue.length);
+		
 		//this part is the data encrypted
 		if (data!=null)
-		System.arraycopy(data, 0, result, seq.length+messagetypelen+13, data.length);
+		System.arraycopy(data, 0, result, seq.length+noncevalue.length+messagetypelen+13, data.length);
 		
 		Mac mac = null;
         try {
