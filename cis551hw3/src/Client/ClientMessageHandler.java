@@ -5,14 +5,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.security.*;
 import java.security.spec.*;
 import java.security.interfaces.*;
 import java.util.HashSet;
+import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import javax.crypto.interfaces.*;
+
+import server.WrappedTimer;
 
 import Message.AuthenticationConfirmation;
 import Message.AuthenticationRequest;
@@ -46,13 +52,15 @@ public class ClientMessageHandler {
 	private SecretKey hashKey;
 	private HashSet<MessageType> expectingMessageType;
 	private boolean isencrypted, checknonce;
+	private Socket connection;
 	
 	public ClientMessageHandler(){
 		serversequencenumber = 0;
 		clientsequencenumber = 0;
 		timestamp = 0;
 		serverauthrandom = -1;
-		clientauthrandom = (int)(Math.random()*Math.pow(10, 10));
+//		clientauthrandom = (int)(Math.random()*Math.pow(10, 10));
+		clientauthrandom = new Random(System.currentTimeMillis()).nextInt();
 		sessionNonce = 0;
 		isencrypted = checknonce = false;
 		expectingMessageType = new HashSet<MessageType>();
@@ -78,7 +86,7 @@ public class ClientMessageHandler {
 	}
 	/**********4/5 Bo End********/
 	
-	public boolean handleMsg(Message msg, ObjectOutputStream oos, ObjectInputStream ois, BufferedReader userInput) throws IOException
+	public boolean handleMsg(Message msg, ObjectOutputStream oos, ObjectInputStream ois, BufferedReader userInput, WrappedTimer wrappedtimer) throws IOException
 	{
 		//if(!msg.checkIntegrity(clientDesKey)) return false;
 		
@@ -161,9 +169,21 @@ public class ClientMessageHandler {
 				if(!this.isExpectingMessageType(MessageType.Auth_Req)||!msg.checkIntegrity(hashKey))return false;
 				this.clearExpectingMessageTypes();
 				this.setExpectingMessageType(MessageType.Auth_Conf);
+				
+				wrappedtimer.setTimerinterval(60000);
+				wrappedtimer.getTimer().cancel();
+				wrappedtimer.setTimer(new Timer(true));
+				wrappedtimer.getTimer().schedule(new Strobe(), wrappedtimer.getTimerinterval());
+				
 				String responseLine = userInput.readLine();
 				AuthenticationResponse authRsp = new AuthenticationResponse(hashKey, responseLine,++clientsequencenumber, sessionNonce);
 				sendMessage(oos,authRsp);
+				
+				wrappedtimer.setTimerinterval(2000);
+				wrappedtimer.getTimer().cancel();
+				wrappedtimer.setTimer(new Timer(true));
+				wrappedtimer.getTimer().schedule(new Strobe(), wrappedtimer.getTimerinterval());
+				
 				return true;
 			case Auth_Conf:
 				if(!this.isExpectingMessageType(MessageType.Auth_Conf)||!msg.checkIntegrity(hashKey))return false;
@@ -172,6 +192,11 @@ public class ClientMessageHandler {
 				AuthenticationConfirmation authConf = (AuthenticationConfirmation) msg;
 				if(authConf.isAuthenticated()){
 					System.out.println("Log in successful! You can start to chat!");
+					
+					wrappedtimer.setTimerinterval(60000);
+					wrappedtimer.getTimer().cancel();
+					wrappedtimer.setTimer(new Timer(true));
+					wrappedtimer.getTimer().schedule(new Strobe(), wrappedtimer.getTimerinterval());
 					return true;
 				}
 				else{
@@ -334,7 +359,27 @@ public class ClientMessageHandler {
 	public int getSessionNonce() {
 		return sessionNonce;
 	}
-	
+		
+	public Socket getConnection() {
+		return connection;
+	}
+
+	public void setConnection(Socket connection) {
+		this.connection = connection;
+	}
+
+	/****************************** Add Timer Task ******************************/
+	private class Strobe extends TimerTask {
+		
+		public void run() {
+			try {
+				connection.close();
+			} catch (IOException e) {
+				System.out.println("In timertask");
+				e.printStackTrace();
+			}
+		}
+	}
 	/*private void sendClientPubKeyEnc(ObjectOutputStream oos, byte[] clientPubKeyEnc){
 		// send out client's public key encrypt via socket
         ClientPublicKeyMessage clientpubkeymsg = new ClientPublicKeyMessage(clientPubKeyEnc, ++clientsequencenumber);

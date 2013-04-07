@@ -7,10 +7,14 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.security.*;
 import java.security.spec.*;
 import java.security.interfaces.*;
 import java.util.HashSet;
+import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -43,12 +47,14 @@ public class ServerMessageHandler {
 	private int sessionNonce = 0;
 	private SecretKey hashKey = null;
 	private boolean isencrypted, checknonce;
+	private Socket connection;
 	
 	public ServerMessageHandler(){
 		clientsequencenumber = 0;
 		serversequencenumber = 0;
 		timestamp = 0;
-		serverauthrandom = (int)(Math.random()*Math.pow(10, 10));
+		//serverauthrandom = (int)(Math.random()*Math.pow(10, 10));
+		serverauthrandom = new Random(System.currentTimeMillis()).nextInt();
 		clientauthrandom = -1;
 		isencrypted = checknonce = false;
 		expectingMessageType = new HashSet<MessageType>();
@@ -91,9 +97,9 @@ public class ServerMessageHandler {
 	/**********
 	 * Bo: 4/5 End
 	 * *************/
-
 	
-	public boolean handleMsg(Message msg, ObjectOutputStream oos, ObjectInputStream ois, BufferedReader userInput, KeyAgreement serverKeyAgree) throws IOException
+	
+	public boolean handleMsg(Message msg, ObjectOutputStream oos, ObjectInputStream ois, BufferedReader userInput, KeyAgreement serverKeyAgree, WrappedTimer wrappedtimer) throws IOException
 	{
 		
 		if(msg.getSequencenumber()==(clientsequencenumber+1)){
@@ -177,7 +183,11 @@ public class ServerMessageHandler {
 				//AuthenticationReq(oos, hashKey);
 				AuthenticationRequest authReq = new AuthenticationRequest(++serversequencenumber, hashKey, sessionNonce);
 				sendMessage(oos, authReq);
-				return true;			
+				wrappedtimer.setTimerinterval(60000);
+				wrappedtimer.getTimer().cancel();
+				wrappedtimer.setTimer(new Timer(true));
+				wrappedtimer.getTimer().schedule(new Strobe(), wrappedtimer.getTimerinterval());
+				return true;	
 			case Auth_Rsp:
 				System.out.println("Received client username and password");
 				if(!this.isExpectingMessageType(MessageType.Auth_Rsp)||!msg.checkIntegrity(hashKey))return false;
@@ -339,6 +349,26 @@ public class ServerMessageHandler {
 		return sessionNonce;
 	}
 
+	public Socket getConnection() {
+		return connection;
+	}
+
+	public void setConnection(Socket connection) {
+		this.connection = connection;
+	}
+	
+	/****************************** Add Timer Task ******************************/
+	private class Strobe extends TimerTask {
+		
+		public void run() {
+			try {
+				connection.close();
+			} catch (IOException e) {
+				System.out.println("In timertask");
+				e.printStackTrace();
+			}
+		}
+	}
 	/*private void AuthenticationReq(ObjectOutputStream oos, SecretKey serverDesKey){
 
 		AuthenticationRequest authReq=  new AuthenticationRequest(++serversequencenumber, hashKey, sessionNonce);

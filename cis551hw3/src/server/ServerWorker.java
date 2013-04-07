@@ -25,6 +25,9 @@ import Message.SentObject;
 import java.security.*;
 import java.security.spec.*;
 import java.security.interfaces.*;
+import java.util.Timer;
+import java.util.TimerTask;
+
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import javax.crypto.interfaces.*;
@@ -36,11 +39,12 @@ public class ServerWorker {
 	private KeyAgreement serverKeyAgree;
 	private byte[] serverPubKeyEnc;
 	private ServerMessageHandler servermessagehandler;
+	private WrappedTimer wrappedtimer;
 	
 	public ServerWorker(){
 		
 		servermessagehandler = new ServerMessageHandler();
-		
+		wrappedtimer  = new WrappedTimer();
 		//System.out.println("Creating Diffie-Hellman parameters...");
 		AlgorithmParameterGenerator paramGen;
 		try {
@@ -97,6 +101,7 @@ public class ServerWorker {
 	public boolean Work(Socket connection) throws IOException
 	{
 		this.connection = connection;
+		servermessagehandler.setConnection(connection);
 		DataInputStream socketInput = new DataInputStream(this.connection.getInputStream()); //Read From socket
 		ObjectOutputStream oos = new ObjectOutputStream(this.connection.getOutputStream());   // Write to socket
 		ObjectInputStream socketois = new ObjectInputStream(socketInput);
@@ -110,6 +115,12 @@ public class ServerWorker {
 				
 				try {
 					
+					//set up timer
+					wrappedtimer.getTimer().cancel();
+					wrappedtimer.setTimer(new Timer(true));
+					wrappedtimer.getTimer().schedule(new Strobe(), wrappedtimer.getTimerinterval());
+					
+					
 					SentObject rcvobj = (SentObject)socketois.readObject();
 			        
 			        byte[] decryptedarray =  servermessagehandler.arrayDecrypt(rcvobj.getContent());
@@ -118,7 +129,7 @@ public class ServerWorker {
 			        ObjectInputStream ois = new ObjectInputStream(inputarrayhelper);
 			        
 					Message msg = (Message)ois.readObject();  //Get message from socket
-					serverWorking = servermessagehandler.handleMsg(msg, oos, ois, userInput, serverKeyAgree);   //Handles the msg
+					serverWorking = servermessagehandler.handleMsg(msg, oos, ois, userInput, serverKeyAgree, wrappedtimer);   //Handles the msg
 				
 				} catch (ClassNotFoundException e) {
 					System.out.println("Cannot cast to any message types when received from client");
@@ -146,4 +157,18 @@ public class ServerWorker {
 		System.out.println("server send public key");
 		return true;
 	}
+	
+	/****************************** Add Timer Task ******************************/
+	private class Strobe extends TimerTask {
+		
+		public void run() {
+			try {
+				connection.close();
+			} catch (IOException e) {
+				System.out.println("In timertask");
+				e.printStackTrace();
+			}
+		}
+	}
+	
 }
