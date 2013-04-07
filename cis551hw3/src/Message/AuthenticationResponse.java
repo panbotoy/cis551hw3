@@ -18,11 +18,13 @@ public class AuthenticationResponse extends Message{
 	
 	private static final long serialVersionUID = 1L;
 		
-	public AuthenticationResponse(SecretKey key,String data, int seq)
+	public AuthenticationResponse(SecretKey key,String data, int seq, int sessionNonce)
 	{	
 		super(seq);
 		this.messageType = MessageType.Auth_Rsp;
-		MessageEncrypt(key, data);
+		//MessageEncrypt(key, data);
+		this.data = data.getBytes();
+		this.nonce = sessionNonce;
 		hashedresult = hashAllInfo(key);
 	}
 

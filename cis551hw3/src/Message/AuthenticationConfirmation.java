@@ -9,12 +9,14 @@ public class AuthenticationConfirmation extends Message{
 	 */
 	private static final long serialVersionUID = 1L;
 	private boolean authenticated;
-	public AuthenticationConfirmation(boolean authenticated, int sequencenumber,SecretKey serverDesKey)
+	public AuthenticationConfirmation(boolean authenticated, int sequencenumber,SecretKey hashKey, int sessionNonce)
 	{
 		super(sequencenumber);
 		this.messageType = MessageType.Auth_Conf;
 		this.authenticated = authenticated;
-		hashedresult = hashAllInfo(serverDesKey);
+		this.data = authenticated?"true".getBytes():"false".getBytes();
+		this.nonce = sessionNonce;
+		hashedresult = hashAllInfo(hashKey);
 	}
 	
 	public boolean isAuthenticated() {
@@ -24,13 +26,4 @@ public class AuthenticationConfirmation extends Message{
 		this.authenticated = authenticated;
 	}
 	
-	@Override
-	public byte[] hashAllInfo(SecretKey key){
-		byte[] superresult = super.hashAllInfo(key);
-		byte[] autharr = authenticated?"true".getBytes():"false".getBytes();
-		byte[] result = new byte[superresult.length+autharr.length];
-		System.arraycopy(superresult, 0, result, 0, superresult.length);
-		System.arraycopy(autharr, 0, result, superresult.length, autharr.length);
-		return result;
-	}
 }

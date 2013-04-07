@@ -3,7 +3,8 @@ package Message;
 import javax.crypto.SecretKey;
 
 public class ClientPublicKeyMessage extends Message{
-private static final long serialVersionUID = 1L;
+
+	private static final long serialVersionUID = 1L;
 	
 	private byte[] publickey;
 	

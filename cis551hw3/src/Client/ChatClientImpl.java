@@ -1,8 +1,13 @@
 package Client;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -14,15 +19,17 @@ import Message.DataMessage;
 import Message.ExitMessage;
 import Message.Message;
 import Message.MessageMultiplexer;
+import Message.SentObject;
 
 public class ChatClientImpl {
 	private String hostName;
 	private int portNumber;
 	private Socket connection;
-	private String authenticationReq = new String("please input username and password");
+	//private String authenticationReq;
 	private ClientMessageHandler clientmessagehandler;
 	
 	public ChatClientImpl(){
+		//authenticationReq = new String("please input username and password");
 		clientmessagehandler = new ClientMessageHandler();
 	}
 	
@@ -52,10 +59,9 @@ public class ChatClientImpl {
 			 * 3. Encryption for the server side user info
 			 * 
 			 * *********/
-			DataInputStream socketInput = new DataInputStream(this.connection.getInputStream());   //Read from socket
-			ObjectInputStream ois = new ObjectInputStream(socketInput);                            // Read Object(message) from socket
-			ObjectOutputStream oos = new ObjectOutputStream(this.connection.getOutputStream());    // write to socket
-
+			DataInputStream socketInput = new DataInputStream(this.connection.getInputStream());   //Read from socket                           
+			ObjectOutputStream oos = new ObjectOutputStream(this.connection.getOutputStream());
+			ObjectInputStream socketois = new ObjectInputStream(socketInput); 
 			BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));   //Read user input
 			boolean clientWorking = true;
 			while(clientWorking)
@@ -63,10 +69,15 @@ public class ChatClientImpl {
 				if(socketInput.available()>0)     // if client receives any message from server
 				{
 					try {
+						SentObject rcvobj = (SentObject)socketois.readObject();
+				        
+				        byte[] decryptedarray =  clientmessagehandler.arrayDecrypt(rcvobj.getContent());
+				        ByteArrayInputStream inputarrayhelper = new ByteArrayInputStream(decryptedarray);
+				        ObjectInputStream ois = new ObjectInputStream(inputarrayhelper);
+				        
 						Message msg = (Message)ois.readObject();
 						clientWorking = clientmessagehandler.handleMsg(msg, oos, ois, userInput);  //handle the message
 					} catch (ClassNotFoundException e) {
-						// TODO Auto-generated catch block
 						System.out.println("Cannot cast to any message types when received from server");
 						e.printStackTrace();
 					}
@@ -76,18 +87,16 @@ public class ChatClientImpl {
 					String responseLine = userInput.readLine();
 					if(responseLine.equals("exit"))   //Client Sends exit
 					{
-						ExitMessage exit = new ExitMessage(clientmessagehandler.getClientDesKey(),clientmessagehandler.getClientsequencenumber()+1);
+						ExitMessage exit = new ExitMessage(clientmessagehandler.getHashKey(),clientmessagehandler.getClientsequencenumber()+1, clientmessagehandler.getSessionNonce());
 						clientmessagehandler.setClientsequencenumber(clientmessagehandler.getClientsequencenumber()+1);
-						oos.writeObject(exit);
-						oos.flush();
+						clientmessagehandler.sendMessage(oos, exit);
 						return;
 					}
 					else    // Client sends normal data message
 					{
-						DataMessage data = new DataMessage(clientmessagehandler.getClientDesKey(),responseLine,clientmessagehandler.getClientsequencenumber()+1);
+						DataMessage data = new DataMessage(clientmessagehandler.getHashKey(),responseLine,clientmessagehandler.getClientsequencenumber()+1, clientmessagehandler.getSessionNonce());
 						clientmessagehandler.setClientsequencenumber(clientmessagehandler.getClientsequencenumber()+1);
-						oos.writeObject(data);
-						oos.flush();
+						clientmessagehandler.sendMessage(oos, data);
 					}
 				}
 			}			

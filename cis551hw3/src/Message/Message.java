@@ -43,7 +43,7 @@ public class Message implements Serializable{
 	protected MessageType messageType;
 	protected long timestamp;
 	protected byte[] data = null;
-	protected byte[] hashedresult;
+	protected byte[] hashedresult = null;
 	//int encodingType;
 	//int encryptionMethod;
 	//private int dataLength;
@@ -53,6 +53,13 @@ public class Message implements Serializable{
 		sequencenumber = seq;
 		nonce = -1;
 	}
+	
+	/*public Message(int seq, int nonce, MessageType messageType, long timestamp){
+		this.timestamp = timestamp;
+		sequencenumber = seq;
+		this.nonce = nonce;
+		this.messageType = messageType;
+	}*/
 	
 	/************** Getters and Setters  ****************/
 	public MessageType getMessageType() {
@@ -74,6 +81,34 @@ public class Message implements Serializable{
 		return hashedresult;
 	}
 	
+	
+	public int getNonce() {
+		return nonce;
+	}
+
+	public void setNonce(int nonce) {
+		this.nonce = nonce;
+	}
+
+	public void setSequencenumber(int sequencenumber) {
+		this.sequencenumber = sequencenumber;
+	}
+
+	public void setMessageType(MessageType messageType) {
+		this.messageType = messageType;
+	}
+
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
+	public void setData(byte[] data) {
+		this.data = data;
+	}
+
+	public void setHashedresult(byte[] hashedresult) {
+		this.hashedresult = hashedresult;
+	}
 	/*public int getEncodingType() {
 		return encodingType;
 	}
@@ -87,10 +122,12 @@ public class Message implements Serializable{
 		this.encryptionMethod = encriptionMethod;
 	}*/
 
+	
+
 	/********************** local methods **********************/
 	//public void MessageEncode(){}
 	//public void MessageDecode(){}
-	public void MessageEncrypt(SecretKey key){}
+	
 	public void MessageEncrypt(SecretKey key, String data){
 		try {
 			Cipher cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");

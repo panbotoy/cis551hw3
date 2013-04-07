@@ -1,11 +1,15 @@
 package server;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 
@@ -14,7 +18,9 @@ import Message.AuthenticationRequest;
 import Message.DataMessage;
 import Message.ExitMessage;
 import Message.Message;
+import Message.MessageType;
 import Message.ServerPublicKeyMessage;
+import Message.SentObject;
 
 import java.security.*;
 import java.security.spec.*;
@@ -91,10 +97,9 @@ public class ServerWorker {
 	public boolean Work(Socket connection) throws IOException
 	{
 		this.connection = connection;
-
 		DataInputStream socketInput = new DataInputStream(this.connection.getInputStream()); //Read From socket
 		ObjectOutputStream oos = new ObjectOutputStream(this.connection.getOutputStream());   // Write to socket
-		ObjectInputStream ois = new ObjectInputStream(socketInput);							  // Read from socket
+		ObjectInputStream socketois = new ObjectInputStream(socketInput);
 		
 		BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));      // Read user input
 		boolean serverWorking = sendServerPubKey(oos, serverPubKeyEnc);                      //Send public key encrypt to client
@@ -102,9 +107,19 @@ public class ServerWorker {
 		{
 			if(socketInput.available()>0)   //If receives anything from socket
 			{
+				
 				try {
+					
+					SentObject rcvobj = (SentObject)socketois.readObject();
+			        
+			        byte[] decryptedarray =  servermessagehandler.arrayDecrypt(rcvobj.getContent());
+
+			        ByteArrayInputStream inputarrayhelper = new ByteArrayInputStream(decryptedarray);
+			        ObjectInputStream ois = new ObjectInputStream(inputarrayhelper);
+			        
 					Message msg = (Message)ois.readObject();  //Get message from socket
 					serverWorking = servermessagehandler.handleMsg(msg, oos, ois, userInput, serverKeyAgree);   //Handles the msg
+				
 				} catch (ClassNotFoundException e) {
 					System.out.println("Cannot cast to any message types when received from client");
 					e.printStackTrace();
@@ -113,27 +128,22 @@ public class ServerWorker {
 			if(System.in.available()>0)// If user output anything, send a DataMessage
 			{
 				String responseLine = userInput.readLine();
-				DataMessage data = new DataMessage(servermessagehandler.getServerDesKey(),responseLine, servermessagehandler.getServersequencenumber()+1);
+				DataMessage data = new DataMessage(servermessagehandler.getHashKey(),responseLine, servermessagehandler.getServersequencenumber()+1, servermessagehandler.getSessionNonce());
 				servermessagehandler.setServersequencenumber(servermessagehandler.getServersequencenumber()+1);
-				oos.writeObject(data);
-				oos.flush();
+				//oos.writeObject(data);
+				//oos.flush();
+				servermessagehandler.sendMessage(oos, data);
 			}
 		}
 		return true;
 	}
 	
 	private boolean sendServerPubKey(ObjectOutputStream oos, byte[] serverPubKeyEnc){
-		ServerPublicKeyMessage serverpubkeymsg=  new ServerPublicKeyMessage(serverPubKeyEnc,servermessagehandler.getServersequencenumber()+1);
+		ServerPublicKeyMessage serverpubkeymsg = new ServerPublicKeyMessage(serverPubKeyEnc,servermessagehandler.getServersequencenumber()+1);
 		servermessagehandler.setServersequencenumber(servermessagehandler.getServersequencenumber()+1);
-		try {
-			oos.writeObject(serverpubkeymsg);
-			oos.flush();
-		} catch (IOException e) {
-
-			System.out.println("Error in sending server public key encrypt request--server serverPubKeyMessage");
-			e.printStackTrace();
-		}
+		servermessagehandler.setExpectingMessageType(MessageType.Client_pub);
+		servermessagehandler.sendMessage(oos, serverpubkeymsg);
+		System.out.println("server send public key");
 		return true;
 	}
-	
 }
